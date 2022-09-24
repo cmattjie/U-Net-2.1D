@@ -1,0 +1,11 @@
+python train.py \
+--argsed True \
+--batch_size 4 \
+--gpu 1 \
+--load_dir './checkpoints/load/10_best.tar' \
+--slice 1 \
+--load_model False \
+--name test \
+--save_dir './checkpoints' \
+--epochs 2 \
+--lr 0.0002 

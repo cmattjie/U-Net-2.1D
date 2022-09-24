@@ -4,15 +4,18 @@ import torchvision.transforms.functional as TF
 from torchsummary import summary
 
 class FirstDoubleConv(nn.Module):
-    def __init__(self, in_channels, out_channels, slices):
+    def __init__(self, in_channels, out_channels, slice):
         super(FirstDoubleConv, self).__init__()
         self.conv2 = nn.Sequential(
             nn.Conv3d(in_channels, out_channels, kernel_size=(3, 3, 3), stride=1, padding=1, bias=False),
             nn.BatchNorm3d(out_channels),
-            #nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),
+            #adicionar if slice>1 para valores de slice maiores que 1
+                #adicionar conv3d
             nn.Conv3d(out_channels, out_channels, kernel_size=(3, 3, 3), stride=1, padding=(0,1,1), bias=False),
             nn.BatchNorm3d(out_channels),
-            #nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True),
+            
         )
 
     def forward(self, x):
@@ -35,7 +38,7 @@ class DoubleConv(nn.Module):
 
 class UNET(nn.Module):
     def __init__(
-            self, in_channels=1, out_channels=1, features=[64, 128, 256, 512], slices=1
+            self, in_channels=1, out_channels=1, features=[64, 128, 256, 512], slice=1
     ):
         super(UNET, self).__init__()
         self.ups = nn.ModuleList()
@@ -45,8 +48,9 @@ class UNET(nn.Module):
         # Down part of UNET
         count=0
         for feature in features:
-            if count==0: 
-                self.downs.append(FirstDoubleConv(in_channels, feature, slices))
+            #rodar essa camada apenas uma vez E SE slice>0
+            if count==0 and slice>0: 
+                self.downs.append(FirstDoubleConv(in_channels, feature, slice))
                 count+=1
                 in_channels = feature
             else:
@@ -104,7 +108,7 @@ class UNET(nn.Module):
 #     assert preds.shape == x.shape
 
 if __name__ == "__main__":
-    model=UNET(in_channels=1, out_channels=1, slices=1)
+    model=UNET(in_channels=1, out_channels=1, slice=1)
     #print(model)
     summary(model, (1, 3, 512, 512))
 

@@ -1,0 +1,12 @@
+python train.py \
+--argsed True \
+--batch_size 4 \
+--gpu 1 \
+--load_dir './checkpoints/load/10_best.tar' \
+--dataset 'kaggle' \
+--slice 1 \
+--load_model False \
+--name 'lr1e-5_kaggle' \
+--save_dir './checkpoints/lr1e-5_kaggle' \
+--epochs 200 \
+--lr 0.00001

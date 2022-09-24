@@ -2,6 +2,8 @@
 /img_show.jpg
 /mask_show.jpg
 /originalmodel.py
-/t = torch.empty(3, 4, 5).py
+
 saved_images/
 checkpoints/
+runs/
+UNET_architecture.png

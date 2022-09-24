@@ -1,0 +1,11 @@
+python train.py \
+--argsed True \
+--batch_size 4 \
+--gpu 0 \
+--load_dir './checkpoints/load/37_best.tar' \
+--slice 1 \
+--load_model True \
+--name Unet2.5 \
+--save_dir './checkpoints' \
+--epochs 100 \
+--lr 0.0002 \
