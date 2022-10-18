@@ -1,6 +1,6 @@
 python train.py \
 --argsed True \
---batch_size 4 \
+--batch_size 5 \
 --gpu 1 \
 --load_dir './checkpoints/load/10_best.tar' \
 --slice 1 \

@@ -1,14 +1,13 @@
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
-python train.py \
+python baseline3d.py \
 --argsed True \
---batch_size 4 \
---early_stop 15 \
---gpu 0 \
+--batch_size 1 \
+--early_stop 10 \
+--gpu 1 \
 --load_dir './checkpoints/load/10_best.tar' \
 --dataset 'LITSkaggle' \
---slice 0 \
 --load_model False \
---name 'LITSkaggle/lr5e-5/slice0' \
+--name 'LITSkaggle/lr1e-6/baseline3d' \
 --epochs 100 \
---lr 0.00005
+--lr 0.000001
