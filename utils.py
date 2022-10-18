@@ -2,10 +2,13 @@ import torch
 import torchvision
 import os
 from glob import glob
+import numpy as np
 
+import monai
 from dataset import MotomedDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from sklearn import metrics as sk
 from monai import metrics
 from monai.data import decollate_batch, ThreadDataLoader
 from monai.visualize import plot_2d_or_3d_image
@@ -19,9 +22,6 @@ from monai.transforms import (
 )
 
 def check_accuracy(loader, model, device, writer, epoch):
-    slicecounter=0
-    dsc_predbg=0
-    dsc_pred=0
     post_trans= Compose([Activations(sigmoid=True), AsDiscrete(threshold=0.5)])
     model.eval()
 
@@ -33,49 +33,70 @@ def check_accuracy(loader, model, device, writer, epoch):
         iou_predbg= metrics.MeanIoU(include_background=True)
         iou_pred= metrics.MeanIoU(include_background=False)
 
+        all_y_pred = 0
+        all_y_true = 0
+        save_batch = True
         count = 0
         for batch_data in loop:
-            count += 1
             data, target = batch_data["ct"].to(device), batch_data["mask"].to(device)
 
             pred_raw = model(data)
-            print('data', data.shape)
-            print('pred_raw', pred_raw.shape)
-
             preds=[post_trans(i) for i in decollate_batch(pred_raw)]
 
             dice_bg(preds, target)
             dice(preds, target)
             iou_predbg(preds, target)
             iou_pred(preds, target)
+            
+            # IOU calculation
+            y_pred = pred_raw.cpu().numpy()
+            y_pred = y_pred > 0.5
+            y_pred = y_pred.reshape(-1)
+            y_pred = y_pred.astype(np.uint8)
+            all_y_pred = np.append(all_y_pred, y_pred)
+            y_true = target.cpu().numpy()
+            y_true = y_true > 0.5
+            y_true = y_true.reshape(-1)
+            y_true = y_true.astype(np.uint8)
+            all_y_true = np.append(all_y_true, y_true)
 
-            if count == 0:
-                writer.add_graph(model, data)
+            count += 1
 
-            plot_2d_or_3d_image(data, count, writer, index=0, tag="image")
-            plot_2d_or_3d_image(target, count, writer, index=0, tag="label")
-            plot_2d_or_3d_image(preds, count, writer, index=0, tag="prediction")
-            plot_2d_or_3d_image(pred_raw, count, writer, index=0, tag="prediction_raw")
+            # save one image for visualization of the curent epoch (only once per epoch)
+            if np.sum(y_true) > 50 and save_batch:
+                save_batch = False
+                plot_2d_or_3d_image(data, epoch+1, writer, index=0, tag="images/image")
+                plot_2d_or_3d_image(target, epoch+1, writer, index=0, tag="images/label")
+                plot_2d_or_3d_image(preds, epoch+1, writer, index=0, tag="images/prediction")
+                plot_2d_or_3d_image(pred_raw, epoch+1, writer, index=0, tag="images/prediction_raw")
+            
+            # save all images from the last epoch
+            plot_2d_or_3d_image(data, count, writer, index=0, tag="best_epoch/image")
+            plot_2d_or_3d_image(target, count, writer, index=0, tag="best_epoch/label")
+            plot_2d_or_3d_image(preds, count, writer, index=0, tag="best_epoch/prediction")
+            plot_2d_or_3d_image(pred_raw, count, writer, index=0, tag="best_epoch/prediction_raw")
 
+        fpr, tpr, _ = sk.roc_curve(all_y_true, all_y_pred)
+        roc_auc = sk.auc(fpr, tpr)
+    
         dsc_bg = dice_bg.aggregate().item()
         dsc_no_bg = dice.aggregate().item()
         iou_bg = iou_predbg.aggregate().item()
         iou_no_bg = iou_pred.aggregate().item()
-        writer.add_scalar("val_mean_dice_bg", dsc_bg, epoch + 1)
-        writer.add_scalar("val_mean_dice_no_bg", dsc_no_bg, epoch + 1)
-        writer.add_scalar("val_iou_bg", iou_bg, epoch + 1)
-        writer.add_scalar("val_iou_no_bg", iou_no_bg, epoch + 1)
+
+        writer.add_scalar("val/mean_dice_bg", dsc_bg, epoch + 1)
+        writer.add_scalar("val/mean_dice_no_bg", dsc_no_bg, epoch + 1)
+        writer.add_scalar("val/iou_bg", iou_bg, epoch + 1)
+        writer.add_scalar("val/iou_no_bg", iou_no_bg, epoch + 1)
+        writer.add_scalar("val/roc_auc", roc_auc, epoch + 1)
 
         dice_bg.reset()
         dice.reset()
         iou_predbg.reset()
         iou_pred.reset()
 
-        #print("dsc_meanbg: ", dsc_meanbg)
-        #print("dsc_mean: ", dsc_mean)
-
-    #print(f"Dice score: {dice_score/len(loader)}")
     model.train()
+    return roc_auc
 
 def save_predictions_as_imgs(
     #falta arrumar
@@ -131,8 +152,12 @@ def plot_images(image3d, mask, slice):
     #nrows=1, ncols=slices, sharex=True,
     fig2 = plt.figure(figsize=((2+4*slices), 6))
     ax=[]
+    
     for i in range(slices):
-        img=image3d[0, i, :, :]
+        if slice==0:
+            img=image3d[i, :, :]
+        else:
+            img=image3d[0, i, :, :]
         ax.append(fig2.add_subplot(1, slices, i+1))
         ax[-1].set_title('Image '+str(i-slice))
         plt.imshow(img, cmap='gray')
@@ -167,7 +192,8 @@ def get_loader(args):
             patients_list.append(img[:4])
 
     # TEST ONLY, REMOVE LATER
-    patients_list = patients_list[:5]
+    patients_list = patients_list[:2]
+    
     num_img = len(patients_list)
     num_train = int(num_img * 0.75)
 
@@ -219,6 +245,6 @@ def get_loader(args):
     plot_images(train_ds[50]['ct'], train_ds[50]['mask'], slice)
 
     train_loader = ThreadDataLoader(train_ds, num_workers=1, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, num_workers=2, batch_size=1, shuffle=False)
+    val_loader = ThreadDataLoader(val_ds, num_workers=2, batch_size=1, shuffle=False)
 
     return train_loader, val_loader

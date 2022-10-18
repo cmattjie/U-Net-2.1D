@@ -4,9 +4,9 @@ python train.py \
 --gpu 1 \
 --load_dir './checkpoints/load/10_best.tar' \
 --dataset 'kaggle' \
---slice 1 \
+--slice 0 \
 --load_model False \
---name 'lr1e-5_kaggle' \
+--name 'lr1e-5_kaggle-slice0' \
 --save_dir './checkpoints/lr1e-5_kaggle' \
---epochs 200 \
+--epochs 10 \
 --lr 0.00001

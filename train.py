@@ -35,7 +35,7 @@ def get_args():
 
     parser.add_argument('--argsed', default=False)
     parser.add_argument('--batch_size', default=4, type=int, help='Size for each mini batch.')
-    #parser.add_argument('--early_stop', default=15, type=int)
+    parser.add_argument('--early_stop', default=15, type=int, help='Early stop criterion.')
     #parser.add_argument('--early_stop_eps', default=5e-6, type=float)
     parser.add_argument('--dataset', default='hmd', help='hmd or kaggle')
     parser.add_argument('--gpu', default='0', help='GPU Number.')
@@ -107,11 +107,10 @@ def main(args):
 
     #check_accuracy(val_loader, model, device=DEVICE)
     scaler = torch.cuda.amp.GradScaler()
-    
-    for epoch in range(epochs):
+    best_roc_auc = 0
+    early_stop = 0
 
-        #if args.load_model == True: # para teste, remover depois disso
-            
+    for epoch in range(epochs):            
         # training model
         print("Training Epoch: ", epoch)           
         train_fn(train_loader,
@@ -121,20 +120,30 @@ def main(args):
             scaler, 
             device=device,
             )
-        
-        # save model
-        checkpoint = {
-            "epoch": epoch,            
-            "state_dict": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-        }
-        save_path = os.path.join(args.save_dir, "my_checkpoint_test.pth.tar")
-        torch.save(checkpoint, save_path)
-        print("Saved checkpoint")
 
         print("check performance on validation set")
         # check accuracy
-        check_accuracy(val_loader, model, device=device, epoch=epoch, writer=writer)
+        roc_auc = check_accuracy(val_loader, model, device=device, epoch=epoch, writer=writer)
+
+        # early stopping
+        if roc_auc > best_roc_auc:
+            # save model
+            checkpoint = {
+                "epoch": epoch,            
+                "state_dict": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            }
+            save_path = os.path.join(args.save_dir, "my_checkpoint_test.pth.tar")
+            torch.save(checkpoint, save_path)
+            print("Saved checkpoint")
+            best_roc_auc = roc_auc
+
+        else:
+            early_stop += 1
+            if early_stop == args.early_stop:
+                print("No improvement in {} epochs, early stopping".format(args.early_stop))
+                writer.close()
+                break
         
         #print("saving predictions")
         # print some examples to a folder
@@ -144,6 +153,7 @@ def main(args):
         #     folder=os.path.join("/A/motomed/semantic_segmentation_unet/saved_images/2.5D", str(epoch)), 
         #     device=device
         # )
+    writer.close()
         
 if __name__ == "__main__":
     args = get_args()

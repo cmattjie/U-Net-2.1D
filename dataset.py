@@ -68,7 +68,7 @@ class MotomedDataset(Dataset):
         self.main_dir = main_dir
         self.transform_img = transform_img
         self.transform_mask = transform_mask
-
+        self.delta_slice = delta_slice
 
     def __len__(self):
         return len(self.img_slices)
@@ -86,8 +86,9 @@ class MotomedDataset(Dataset):
             tmp = self.transform_img(tmp)
             img.append(tmp)
         img = torch.cat(img, dim=0)
-        img = img.unsqueeze(0)
-
+        if self.delta_slice > 0:
+            img = img.unsqueeze(0)
+        
         mask_path = os.path.join(self.main_dir, 'mask', mask_slices)
         mask = loader(mask_path)
         mask = self.transform_mask(mask)
