@@ -1,1 +1,1 @@
-from .LITS import LITS
+from .LITS import MotomedDataset

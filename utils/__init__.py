@@ -1,1 +1,1 @@
-from general import valid, set_seeds, get_loader, plot_images
+from .general import set_seeds, get_loader, plot_images

@@ -18,116 +18,6 @@ from monai.transforms import (
     Resize,
 )
 
-def valid(loader, model, loss_fn, device, writer, epoch, metric):
-    post_trans= Compose([Activations(sigmoid=True), AsDiscrete(threshold=0.5)])
-    model.eval()
-    epoch_loss=[]
-    #Arranjar um jeito de salvar apenas a melhor época baseada na "metric" (dsc_bg da última época)
-
-    with torch.no_grad():
-
-        loop = tqdm(loader, ncols=110)
-
-        dice_bg = metrics.DiceMetric(include_background=True)
-        dice= metrics.DiceMetric(include_background=False)
-        iou_predbg= metrics.MeanIoU(include_background=True)
-        iou_pred= metrics.MeanIoU(include_background=False)
-
-        save_batch = True
-        count = 0
-        for batch_data in loop:
-            data, target = batch_data["ct"].to(device), batch_data["mask"].to(device)
-
-            pred_raw = model(data)
-            preds=[post_trans(i) for i in decollate_batch(pred_raw)]
-
-            loss = loss_fn(pred_raw, target)
-            epoch_loss.append(loss.item())
-
-            dice_bg(preds, target)
-            dice(preds, target)
-            iou_predbg(preds, target)
-            iou_pred(preds, target)
-
-            count += 1
-
-            # save one image for visualization of the curent epoch (only once per epoch)
-            if save_batch and torch.sum(target) > 10000:
-                save_batch = False
-                plot_2d_or_3d_image(data, epoch+1, writer, index=0, tag="images/image")
-                plot_2d_or_3d_image(target, epoch+1, writer, index=0, tag="images/label")
-                plot_2d_or_3d_image(preds, epoch+1, writer, index=0, tag="images/prediction")
-                plot_2d_or_3d_image(pred_raw, epoch+1, writer, index=0, tag="images/prediction_raw")
-            
-            # save all images from the last epoch
-            if torch.sum(target) > 2000 and (count%5)==0:
-                plot_2d_or_3d_image(data, count, writer, index=0, tag="best_epoch/image")
-                plot_2d_or_3d_image(target, count, writer, index=0, tag="best_epoch/label")
-                plot_2d_or_3d_image(preds, count, writer, index=0, tag="best_epoch/prediction")
-                plot_2d_or_3d_image(pred_raw, count, writer, index=0, tag="best_epoch/prediction_raw")
-
-            #update loop
-            loop.set_postfix(loss=loss.item())
-            loop.set_description_str(
-                    desc=f'{"Valid"} {epoch}',
-                    refresh=True,
-            )
-
-        dsc_bg = dice_bg.aggregate().item()
-        dsc_no_bg = dice.aggregate().item()
-        iou_bg = iou_predbg.aggregate().item()
-        iou_no_bg = iou_pred.aggregate().item()
-
-        #métricas para tensorboard
-        writer.add_scalar("val/mean_dice_bg", dsc_bg, epoch + 1)
-        writer.add_scalar("val/mean_dice_no_bg", dsc_no_bg, epoch + 1)
-        writer.add_scalar("val/iou_bg", iou_bg, epoch + 1)
-        writer.add_scalar("val/iou_no_bg", iou_no_bg, epoch + 1)
-        writer.add_scalar("val/loss", np.mean(epoch_loss), epoch + 1)
-
-        dice_bg.reset()
-        dice.reset()
-        iou_predbg.reset()
-        iou_pred.reset()
-
-    model.train()
-    return dsc_bg
-
-def plot_images(image3d, mask, slice):
-    '''
-    Plot 2D image from 3D image, given a slice and a center
-    image3d: exame
-    slice: número de cortes para cada lado do centro
-    salva a imagem
-    '''
-    import matplotlib.pyplot as plt
-
-    slices=2*slice+1
-    #nrows=1, ncols=slices, sharex=True,
-    fig2 = plt.figure(figsize=((2+4*slices), 6))
-    ax=[]
-    
-    for i in range(slices):
-        if slice==0:
-            img=image3d[i, :, :]
-        else:
-            img=image3d[0, i, :, :]
-        ax.append(fig2.add_subplot(1, slices, i+1))
-        ax[-1].set_title('Image '+str(i-slice))
-        plt.imshow(img, cmap='gray')
-
-    fig2.suptitle('Example of images')
-    plt.savefig(os.path.join('/A/motomed/semantic_segmentation_unet', 'img_show.jpg'))
-
-    maskfig = plt.figure(figsize=((6), 6)) 
-    ax2=[]
-    msk=mask[0, :, :]
-    ax2.append(maskfig.add_subplot(1, 1, 1))
-    plt.imshow(msk, cmap='gray')
-
-    maskfig.suptitle('Example of masks')
-    plt.savefig(os.path.join('/A/motomed/semantic_segmentation_unet', 'mask_show.jpg'))
-
 def get_loader(args):
     slice=int(args.slice)
 
@@ -159,8 +49,8 @@ def get_loader(args):
     num_train = int(num_img * 0.80)
 
     train_list = _[:num_train]
-    print('lista treino:', len(train_list))
-    print('quant traino:',  num_train)
+    # print('lista treino:', len(train_list))
+    # print('quant traino:',  num_train)
     validation_list = _[num_train:]
 
     print('Number of patients: ', num_total_img)
@@ -216,6 +106,41 @@ def get_loader(args):
     val_loader = ThreadDataLoader(val_ds, num_workers=1, batch_size=1, shuffle=False)
 
     return train_loader, val_loader
+
+def plot_images(image3d, mask, slice):
+    '''
+    Plot 2D image from 3D image, given a slice and a center
+    image3d: exame
+    slice: número de cortes para cada lado do centro
+    salva a imagem
+    '''
+    import matplotlib.pyplot as plt
+
+    slices=2*slice+1
+    #nrows=1, ncols=slices, sharex=True,
+    fig2 = plt.figure(figsize=((2+4*slices), 6))
+    ax=[]
+    
+    for i in range(slices):
+        if slice==0:
+            img=image3d[i, :, :]
+        else:
+            img=image3d[0, i, :, :]
+        ax.append(fig2.add_subplot(1, slices, i+1))
+        ax[-1].set_title('Image '+str(i-slice))
+        plt.imshow(img, cmap='gray')
+
+    fig2.suptitle('Example of images')
+    plt.savefig(os.path.join('/A/motomed/semantic_segmentation_unet', 'img_show.jpg'))
+
+    maskfig = plt.figure(figsize=((6), 6)) 
+    ax2=[]
+    msk=mask[0, :, :]
+    ax2.append(maskfig.add_subplot(1, 1, 1))
+    plt.imshow(msk, cmap='gray')
+
+    maskfig.suptitle('Example of masks')
+    plt.savefig(os.path.join('/A/motomed/semantic_segmentation_unet', 'mask_show.jpg'))
 
 def set_seeds(seed: int) -> None:
     '''
