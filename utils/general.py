@@ -23,9 +23,9 @@ def get_loader(args):
 
     dataset = args.dataset
     data_paths = {
-        'hmd': '/A/motomed/datasets/processed/hmd',
-        'LITSkaggle': '/A/motomed/datasets/processed/LITSkaggle',
-        'amos22': '/A/motomed/datasets/processed/amos22', # multiple organs, take care :D
+        'hmd': '/mnt/B-SSD/unet21d_slices/datasets/processed/hmd',
+        'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/processed/LITSkaggle',
+        'amos22': '/mnt/B-SSD/unet21d_slices/datasets/processed/amos22', # multiple organs, take care :D
     }
     DATA_PATH = data_paths[dataset]
 
@@ -103,7 +103,7 @@ def get_loader(args):
     #plot_images(train_ds[50]['ct'], train_ds[50]['mask'], slice)
 
     train_loader = ThreadDataLoader(train_ds, num_workers=1, batch_size=args.batch_size, shuffle=True)
-    val_loader = ThreadDataLoader(val_ds, num_workers=1, batch_size=1, shuffle=False)
+    val_loader = ThreadDataLoader(val_ds, num_workers=1, batch_size=args.batch_size, shuffle=False)
 
     return train_loader, val_loader
 

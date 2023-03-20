@@ -5,8 +5,7 @@ python train_unet21d.py \
 --early_stop 10 \
 --dataset LITSkaggle \
 --gpu 0 \
---load_model False \
---load_dir ./checkpoints/load/10_best.tar \
+--load_dir None \
 --name LITSkaggle/lr1e-4/slice2 \
 --slice 2 \
 --epochs 100 \

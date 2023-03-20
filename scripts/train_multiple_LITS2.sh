@@ -8,11 +8,11 @@ python3 train_unet21d.py \
 --batch_size 40 \
 --early_stop 10 \
 --dataset LITSkaggle \
---gpu 0 \
+--gpu 1 \
 --load_dir None \
---name LITSkaggle/lr1e-2/slice$alpha \
+--name LITSkaggle/lr1e-5/slice$alpha \
 --slice $alpha \
 --epochs 150 \
---lr 1e-2
+--lr 1e-5
 
 done
