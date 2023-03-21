@@ -10,9 +10,9 @@ python3 train_unet21d.py \
 --dataset LITSkaggle \
 --gpu 2 \
 --load_dir None \
---name LITSkaggle/lr1e-3/slice$alpha \
+--name LITSkaggle/lr1e-5/slice$alpha \
 --slice $alpha \
 --epochs 150 \
---lr 1e-3
+--lr 1e-5
 
 done

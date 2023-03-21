@@ -1,4 +1,4 @@
-/__pycache__
+
 /img_show.jpg
 /mask_show.jpg
 /originalmodel.py
@@ -7,3 +7,5 @@ saved_images/
 checkpoints/
 runs/
 UNET_architecture.png
+cufile.log
+./utils/__pycache__/general.cpython-39.pyc

@@ -52,7 +52,6 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
-    torch.backends.cudnn.benchmark = True
     set_seeds(args.seed)
     
     # Create dirs if not exist
@@ -93,6 +92,7 @@ if __name__ == "__main__":
         print("Model loaded!")
     
     #utils
+    #TODO SCHEDULER FALAR COM PARRAGA
     scaler = torch.cuda.amp.GradScaler()
     best_dsc_bg = 0
     early_stop = 0
@@ -118,6 +118,7 @@ if __name__ == "__main__":
             dice_pred = metrics.DiceMetric(include_background=True)
             iou_pred = metrics.MeanIoU(include_background=True)
             
+            #TODO dropout
             #set model to train or eval
             if is_train: 
                 model.train()
@@ -128,8 +129,7 @@ if __name__ == "__main__":
             
             for batch_data in loop:
                 data, target = batch_data['ct'].to(device), batch_data['mask'].to(device)
-                count += 1
-                
+                                
                 with torch.cuda.amp.autocast():
                     pred_raw = model(data)
                     predictions = [post_trans(i) for i in decollate_batch(pred_raw)]
@@ -137,8 +137,8 @@ if __name__ == "__main__":
                     epoch_loss.append(loss.item())
                     
                 #saving predictions
-                # save one image for visualization of the curent epoch (only once per epoch)
-                if not is_train and save_batch and torch.sum(target) > 10000:
+                # save one image for each epoch
+                if not is_train and save_batch and (torch.sum(target[0]) > 8000):
                     save_batch = False
                     plot_2d_or_3d_image(data, epoch+1, board, index=0, tag="images/image")
                     plot_2d_or_3d_image(target, epoch+1, board, index=0, tag="images/label")
@@ -146,7 +146,8 @@ if __name__ == "__main__":
                     plot_2d_or_3d_image(pred_raw, epoch+1, board, index=0, tag="images/prediction_raw")
             
                 # save 5 images from the last epoch
-                if not is_train and torch.sum(target) > 4000 and (count%5)==0:
+                if not is_train and (torch.sum(target[0]) > 7000) and (count<6) and early_stop==0:
+                    count += 1
                     plot_2d_or_3d_image(data, count, board, index=0, tag="last_epoch/image")
                     plot_2d_or_3d_image(target, count, board, index=0, tag="last_epoch/label")
                     plot_2d_or_3d_image(predictions, count, board, index=0, tag="last_epoch/prediction")
@@ -168,7 +169,7 @@ if __name__ == "__main__":
                     s=f'Mean loss: {np.mean(epoch_loss).mean():.4f}',
                     refresh=True
                 )
-            
+            #get metrics
             dice = dice_pred.aggregate().item()
             iou = iou_pred.aggregate().item()
             
@@ -176,11 +177,12 @@ if __name__ == "__main__":
             board.add_scalar(f'{description}/loss', np.mean(epoch_loss).mean(), epoch)
             board.add_scalar(f'{description}/dice', dice, epoch)
             board.add_scalar(f'{description}/iou', iou, epoch)
-        
-        #only for validation    
-        dice_pred.reset()
-        iou_pred.reset()
-        
+
+            #reset metrics
+            dice_pred.reset()
+            iou_pred.reset()
+            
+        #only for validation 
         if dice > best_dsc_bg:
             best_dsc_bg = dice
             early_stop = 0

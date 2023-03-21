@@ -58,11 +58,12 @@ def get_loader(args):
     print('Number of validation patients: ', len(validation_list))
     print('Number of test patients: ', len(test_list))
 
+    #TODO change min and max values according to dataset and organ
     # define transforms for image and segmentation
     train_transforms_img = Compose(
         [
             EnsureChannelFirst(),
-            Resize(spatial_size=(256, 256), mode=("area")),
+            #Resize(spatial_size=(256, 256), mode=("area")),
             #Flipd(keys=['mask'], spatial_axis=1),
             ScaleIntensityRange(
             a_min=-175, a_max=250,
@@ -73,7 +74,7 @@ def get_loader(args):
     train_transforms_mask = Compose(
         [
             EnsureChannelFirst(),
-            Resize(spatial_size=(256, 256), mode=("nearest")),
+            #Resize(spatial_size=(256, 256), mode=("nearest")),
             #Flipd(keys=['mask'], spatial_axis=1),
         ]
     )
@@ -82,7 +83,7 @@ def get_loader(args):
         [
             EnsureChannelFirst(),
             #Flipd(keys=['mask'], spatial_axis=1),
-            Resize(spatial_size=(256, 256), mode=("area")),
+            #Resize(spatial_size=(256, 256), mode=("area")),
             ScaleIntensityRange(
             a_min=-175, a_max=250,
             b_min=0.0, b_max=1.0, clip=True,
@@ -92,7 +93,7 @@ def get_loader(args):
     val_transforms_mask = Compose(
         [
             EnsureChannelFirst(),
-            Resize(spatial_size=(256, 256), mode=("nearest")),
+            #Resize(spatial_size=(256, 256), mode=("nearest")),
             #Flipd(keys=['mask'], spatial_axis=1),
         ]
     )
