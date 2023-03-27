@@ -5,14 +5,15 @@ alpha=$i
 echo $alpha 
 
 python3 train_unet21d.py \
---batch_size 40 \
---early_stop 10 \
---dataset LITSkaggle \
+--batch_size 12 \
+--early_stop 25 \
+--dataset MSD_Colon \
 --gpu 1 \
 --load_dir None \
---name LITSkaggle/lr1e-4/slice$alpha \
+--name MSD_Colon/loss_focal/slice$alpha/lr1e-4 \
 --slice $alpha \
---epochs 150 \
---lr 1e-4
+--epochs 200 \
+--lr 1e-4 \
+--loss focal
 
 done

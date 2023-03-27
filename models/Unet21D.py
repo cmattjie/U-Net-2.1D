@@ -22,7 +22,7 @@ class FirstDoubleConv(nn.Module):
         return self.conv2(x)
 
 class DoubleConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, dropout):
         super(DoubleConv, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, 3, 1, 1, bias=False),
@@ -38,7 +38,7 @@ class DoubleConv(nn.Module):
 
 class UNET21D(nn.Module):
     def __init__(
-            self, in_channels=1, out_channels=1, features=[64, 128, 256, 512], slice=1
+            self, in_channels=1, out_channels=1, features=[64, 128, 256, 512], slice=1, dropout=0.5
     ):
         super(UNET21D, self).__init__()
         self.ups = nn.ModuleList()

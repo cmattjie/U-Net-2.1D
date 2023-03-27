@@ -8,4 +8,4 @@ checkpoints/
 runs/
 UNET_architecture.png
 cufile.log
-./utils/__pycache__/general.cpython-39.pyc
+/utils/__pycache__/general.cpython-39.pyc

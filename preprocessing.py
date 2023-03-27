@@ -17,7 +17,7 @@ from monai.transforms import (
 import warnings
 warnings.filterwarnings("ignore", message="Modifying image pixdim from")
 
-dataset = 'LITSkaggle'
+datasets = ['MSD_Liver', 'MSD_Hippocampus', 'MSD_Lung', 'MSD_Pancreas', 'MSD_HepaticVessel', 'MSD_Spleen', 'MSD_Colon']
 
 # hmd → tem que flipar a imagem e rotacionar 90 graus 1 vez 
 # ((Flipd(keys=['mask'], spatial_axis=1), Rotate90d(keys=['ct', 'mask'], k=2, spatial_axes=(0, 1))
@@ -29,54 +29,66 @@ dataset = 'LITSkaggle'
 # (Rotate90d(keys=['ct', 'mask'], k=2, spatial_axes=(0, 1))
 
 data_paths = {
-    'hmd': '/A/motomed/datasets/liver/supervised',
-    'LITSkaggle': '/A/motomed/datasets/LITSkaggle',
-    'amos22': '/A/luismoura/datasets/AMOS2022/AMOS22',
+    'hmd': '/mnt/B-SSD/unet21d_slices/datasets/liver/supervised',
+    'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/LITSkaggle',
+    'amos22': '/mnt/B-SSD/unet21d_slices/datasets/AMOS2022/AMOS22',
+    'MSD_Brain': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task01_BrainTumour',
+    'MSD_Heart': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task02_Heart',
+    'MSD_Liver': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task03_Liver',
+    'MSD_Hippocampus': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task04_Hippocampus',
+    'MSD_Prostate': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task05_Prostate',
+    'MSD_Lung': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task06_Lung',
+    'MSD_Pancreas': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task07_Pancreas',
+    'MSD_HepaticVessel': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task08_HepaticVessel',
+    'MSD_Spleen': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task09_Spleen',
+    'MSD_Colon': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task10_Colon',
+    
 }
+for dataset in datasets:
+    dataset_path = data_paths[dataset]
+    print('loading dataset from:', dataset_path)
+    processed_path = os.path.join('/mnt/B-SSD/unet21d_slices/datasets/processed', dataset)
 
-dataset_path = data_paths[dataset]
-processed_path = os.path.join('/A/motomed/datasets/processed', dataset)
+    if not os.path.exists(processed_path):
+        os.makedirs(processed_path)
+        os.makedirs(os.path.join(processed_path, 'CT'))
+        os.makedirs(os.path.join(processed_path, 'mask'))
 
-if not os.path.exists(processed_path):
-    os.makedirs(processed_path)
-    os.makedirs(os.path.join(processed_path, 'CT'))
-    os.makedirs(os.path.join(processed_path, 'mask'))
+    ct = sorted(glob(os.path.join(dataset_path, 'imagesTr', '*.nii*')))
+    mask = sorted(glob(os.path.join(dataset_path, 'labelsTr', '*.nii*')))
 
-ct = sorted(glob(os.path.join(dataset_path, 'CT', '*.nii*')))
-mask = sorted(glob(os.path.join(dataset_path, 'mask', '*.nii*')))
+    print("Found {} CT scans and {} masks".format(len(ct), len(mask)))
 
-print("Found {} CT scans and {} masks".format(len(ct), len(mask)))
+    files = [{'ct': ct_, 'mask': mask_} for ct_, mask_ in zip(ct, mask)]
 
-files = [{'ct': ct_, 'mask': mask_} for ct_, mask_ in zip(ct, mask)]
+    # define transforms for image and segmentation
+    transforms = Compose(
+        [
+            LoadImaged(keys=['ct', 'mask'], image_only=True),
+            EnsureChannelFirstd(keys=['ct', 'mask']),
+            Rotate90d(keys=['ct', 'mask'], k=2, spatial_axes=(0, 1)),
+            LabelToMaskd(keys=['mask'], select_labels=[1, 2], merge_channels=True),
+            #Flipd(keys=['mask'], spatial_axis=1), #hmd data are flipped
+        ]
+    )
 
-# define transforms for image and segmentation
-transforms = Compose(
-    [
-        LoadImaged(keys=['ct', 'mask'], image_only=True),
-        EnsureChannelFirstd(keys=['ct', 'mask']),
-        Rotate90d(keys=['ct', 'mask'], k=2, spatial_axes=(0, 1)),
-        LabelToMaskd(keys=['mask'], select_labels=[1, 2], merge_channels=True),
-        #Flipd(keys=['mask'], spatial_axis=1), #hmd data are flipped
-    ]
-)
+    ds = monai.data.Dataset(data=files, transform=transforms)
+    loader = ThreadDataLoader(ds, num_workers=1, batch_size=1, shuffle=False)
 
-ds = monai.data.Dataset(data=files, transform=transforms)
-loader = ThreadDataLoader(ds, num_workers=1, batch_size=1, shuffle=False)
+    writer_ct = NibabelWriter()
+    writer_mask = NibabelWriter()
 
-writer_ct = NibabelWriter()
-writer_mask = NibabelWriter()
+    patient_num = 0
+    for batch_data in tqdm(loader):
+        ct, mask = batch_data['ct'], batch_data['mask']
 
-patient_num = 0
-for batch_data in tqdm(loader):
-    ct, mask = batch_data['ct'], batch_data['mask']
+        for slice in tqdm(range(ct.shape[4]), leave=False):
+            writer_ct.set_data_array(ct[0, 0, :, :, slice], channel_dim=None)
+            # first four digits are patient number, last four are slice number
+            writer_ct.write(os.path.join(processed_path, 'CT', '{:04d}_{:04d}.nii'.format(patient_num, slice)))
 
-    for slice in tqdm(range(ct.shape[4]), leave=False):
-        writer_ct.set_data_array(ct[0, 0, :, :, slice], channel_dim=None)
-        # first four digits are patient number, last four are slice number
-        writer_ct.write(os.path.join(processed_path, 'CT', '{:04d}_{:04d}.nii'.format(patient_num, slice)))
-
-        writer_mask.set_data_array(mask[0, 0, :, :, slice], channel_dim=None)
-        # first four digits are patient number, last four are slice number
-        writer_mask.write(os.path.join(processed_path, 'mask', '{:04d}_{:04d}.nii'.format(patient_num, slice)))
-            
-    patient_num += 1
+            writer_mask.set_data_array(mask[0, 0, :, :, slice], channel_dim=None)
+            # first four digits are patient number, last four are slice number
+            writer_mask.write(os.path.join(processed_path, 'mask', '{:04d}_{:04d}.nii'.format(patient_num, slice)))
+                
+        patient_num += 1

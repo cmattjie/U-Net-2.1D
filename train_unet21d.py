@@ -8,6 +8,7 @@ import numpy as np
 #from albumentations.pytorch import ToTensorV2
 import torch.nn as nn
 import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
 from models.Unet21D import UNET21D
 
 from utils import (
@@ -16,13 +17,14 @@ from utils import (
     plot_images
 )
 
-from monai import metrics
+from monai import metrics, losses
 from monai.data import decollate_batch
 from monai.transforms import (
     Activations,
     AsDiscrete,
     Compose,
 )
+
 
 from torch.utils.tensorboard import SummaryWriter
 from monai.visualize import plot_2d_or_3d_image
@@ -35,13 +37,14 @@ def get_args():
 
     parser.add_argument('--batch_size',         default=4, type=int, help='Size for each mini batch.')
     parser.add_argument('--early_stop',         default=10, type=int, help='Early stop criterion.')
-    parser.add_argument('--dataset',            default='hmd', choices=['hmd', 'LITSkaggle'], help='hmd or LITSkaggle')
+    parser.add_argument('--dataset',            default='hmd', type=str, help='hmd or LITSkaggle or multiple MSD datasets')
     parser.add_argument('--gpu',                default=-1, help='GPU Number.')
     parser.add_argument('--load_dir',           default=None, help='Load model from checkpoint?')
     parser.add_argument('--name',               default='test', type=str, help='Run name on Tensorboard and savedirs.')
     parser.add_argument('--slice',              default=1, type=int,  help='Number of extra slices on each side')
     parser.add_argument('--epochs',             default=100, type=int, help='Number of epochs to train.')
     parser.add_argument('--lr',                 default=1e-4, type=float, help='Learning rate.')
+    parser.add_argument('--loss',               default='bce', type=str, help='Loss function.')
     parser.add_argument('--seed',               default=42, type=int, help='Random seed.')
     
     args = parser.parse_args()
@@ -58,9 +61,18 @@ if __name__ == "__main__":
     save_path = os.path.join("./checkpoints", args.name, "my_checkpoint_test.pth.tar")
     if not os.path.exists(save_path):
         os.makedirs(os.path.join("./checkpoints", args.name), exist_ok=True)
-        
+    
+    #TODO import dicts from utils
+    loss_dict = {
+            'bce': nn.BCEWithLogitsLoss(),
+            'dice': losses.DiceLoss(),
+            'gdice': losses.GeneralizedDiceLoss(),
+            'focal': losses.FocalLoss()
+            }
+    
     # Print args
     print('name:', args.name)
+    print('loss:', str(loss_dict[args.loss]))
     print('learning rate:', args.lr)
     print('slice:', args.slice)
     print('batch size:', args.batch_size)
@@ -76,8 +88,11 @@ if __name__ == "__main__":
     board = SummaryWriter(f'runs/{args.name}')
     
     #Loss and optimizer
-    loss_fn = nn.BCEWithLogitsLoss()
+    loss_fn = loss_dict[args.loss]
+    
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    #TODO evaluate other scheduler options
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
     
     #Get Loaders
     train_loader, val_loader = get_loader(args)
@@ -92,7 +107,6 @@ if __name__ == "__main__":
         print("Model loaded!")
     
     #utils
-    #TODO SCHEDULER FALAR COM PARRAGA
     scaler = torch.cuda.amp.GradScaler()
     best_dsc_bg = 0
     early_stop = 0
@@ -100,7 +114,6 @@ if __name__ == "__main__":
     post_trans = Compose([Activations(sigmoid=True), AsDiscrete(threshold=0.5)])
     
     for epoch in range(args.epochs):
-        
         #early stop
         if early_stop == args.early_stop:
             print('Early stop reached. Stopping training...')
@@ -108,6 +121,10 @@ if __name__ == "__main__":
         
         for is_train, description in zip([True, False], ["Train", "Valid"]):
         
+            # for testing only
+            # if is_train and epoch==0:
+            #     continue
+            
             loop = tqdm(train_loader, ncols=140) if is_train else tqdm(val_loader, ncols=140)
             loop.set_description_str(desc=f'{description} {epoch}', refresh=True)
             
@@ -135,10 +152,14 @@ if __name__ == "__main__":
                     predictions = [post_trans(i) for i in decollate_batch(pred_raw)]
                     loss = loss_fn(pred_raw, target)
                     epoch_loss.append(loss.item())
-                    
+                
+                #TODO adicionar targets para outros datasets
+                save_target_dict= {'hmd': 8000, 'LITSkaggle': 10000, 'MSD_Lung': 20,
+                                   'MSD_Spleen': 1000, 'MSD_Kidney': 20, 'MSD_Prostate': 20, 'MSD_Colon': 20, 'MSD_Pancreas': 2000, 'MSD_HepaticVessel': 20}
+                
                 #saving predictions
                 # save one image for each epoch
-                if not is_train and save_batch and (torch.sum(target[0]) > 8000):
+                if not is_train and save_batch and (torch.sum(target[0]) > save_target_dict[args.dataset]):
                     save_batch = False
                     plot_2d_or_3d_image(data, epoch+1, board, index=0, tag="images/image")
                     plot_2d_or_3d_image(target, epoch+1, board, index=0, tag="images/label")
@@ -146,7 +167,7 @@ if __name__ == "__main__":
                     plot_2d_or_3d_image(pred_raw, epoch+1, board, index=0, tag="images/prediction_raw")
             
                 # save 5 images from the last epoch
-                if not is_train and (torch.sum(target[0]) > 7000) and (count<6) and early_stop==0:
+                if not is_train and (torch.sum(target[0]) > save_target_dict[args.dataset]) and (count<6) and early_stop==0:
                     count += 1
                     plot_2d_or_3d_image(data, count, board, index=0, tag="last_epoch/image")
                     plot_2d_or_3d_image(target, count, board, index=0, tag="last_epoch/label")
@@ -169,6 +190,7 @@ if __name__ == "__main__":
                     s=f'Mean loss: {np.mean(epoch_loss).mean():.4f}',
                     refresh=True
                 )
+                    
             #get metrics
             dice = dice_pred.aggregate().item()
             iou = iou_pred.aggregate().item()
@@ -181,7 +203,10 @@ if __name__ == "__main__":
             #reset metrics
             dice_pred.reset()
             iou_pred.reset()
-            
+        
+        #scheduler
+        scheduler.step(-dice)
+        
         #only for validation 
         if dice > best_dsc_bg:
             best_dsc_bg = dice

@@ -26,6 +26,13 @@ def get_loader(args):
         'hmd': '/mnt/B-SSD/unet21d_slices/datasets/processed/hmd',
         'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/processed/LITSkaggle',
         'amos22': '/mnt/B-SSD/unet21d_slices/datasets/processed/amos22', # multiple organs, take care :D
+        'MSD_Colon': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Colon',
+        'MSD_HepaticVessel': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_HepaticVessel',
+        'MSD_Hippocampus': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Hippocampus',
+        #'MSD_Liver': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Liver',
+        'MSD_Lung': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Lung',
+        'MSD_Pancreas': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Pancreas',
+        'MSD_Spleen': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Spleen',
     }
     DATA_PATH = data_paths[dataset]
 
@@ -59,6 +66,18 @@ def get_loader(args):
     print('Number of test patients: ', len(test_list))
 
     #TODO change min and max values according to dataset and organ
+    organ_intensity_range = {
+        'hmd': (-175, 250),
+        'LITSkaggle': (-175, 250),
+        'amos22': (-991, 362),
+        'MSD_Colon': (-991, 362),
+        'MSD_HepaticVessel': (-175, 250),
+        'MSD_Hippocampus': (-175, 250),   #MRI
+        'MSD_Lung': (-1024, 250),      
+        'MSD_Pancreas': (-175, 250),
+        'MSD_Spleen': (-175, 250),
+    }
+    
     # define transforms for image and segmentation
     train_transforms_img = Compose(
         [
@@ -66,7 +85,7 @@ def get_loader(args):
             #Resize(spatial_size=(256, 256), mode=("area")),
             #Flipd(keys=['mask'], spatial_axis=1),
             ScaleIntensityRange(
-            a_min=-175, a_max=250,
+            a_min=organ_intensity_range[dataset][0], a_max=organ_intensity_range[dataset][1],
             b_min=0.0, b_max=1.0, clip=True,
             ),
         ]
@@ -85,7 +104,7 @@ def get_loader(args):
             #Flipd(keys=['mask'], spatial_axis=1),
             #Resize(spatial_size=(256, 256), mode=("area")),
             ScaleIntensityRange(
-            a_min=-175, a_max=250,
+            a_min=organ_intensity_range[dataset][0], a_max=organ_intensity_range[dataset][1],
             b_min=0.0, b_max=1.0, clip=True,
             ),
         ]
