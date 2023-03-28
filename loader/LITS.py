@@ -15,7 +15,7 @@ class MotomedDataset(Dataset):
         subset -> list of patients that will be used in this dataset
         '''
 
-        imgs = sorted(os.listdir(os.path.join(main_dir, 'CT')))
+        imgs = sorted(os.listdir(os.path.join(main_dir, 'images')))
 
         patients_list = list()
         for img in imgs:
@@ -75,7 +75,7 @@ class MotomedDataset(Dataset):
 
         img = list()
         for slice in img_slices:
-            img_path = os.path.join(self.main_dir, 'CT', slice)
+            img_path = os.path.join(self.main_dir, 'images', slice)
             tmp = loader(img_path)
             tmp = self.transform_img(tmp)
             img.append(tmp)
@@ -87,4 +87,4 @@ class MotomedDataset(Dataset):
         mask = loader(mask_path)
         mask = self.transform_mask(mask)
 
-        return {'ct':img, 'mask': mask}
+        return {'images':img, 'mask': mask}

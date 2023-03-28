@@ -6,6 +6,7 @@
 saved_images/
 checkpoints/
 runs/
+runs_old/
 UNET_architecture.png
 cufile.log
 /utils/__pycache__/general.cpython-39.pyc

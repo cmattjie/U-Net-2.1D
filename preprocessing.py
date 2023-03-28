@@ -17,8 +17,6 @@ from monai.transforms import (
 import warnings
 warnings.filterwarnings("ignore", message="Modifying image pixdim from")
 
-datasets = ['MSD_Liver', 'MSD_Hippocampus', 'MSD_Lung', 'MSD_Pancreas', 'MSD_HepaticVessel', 'MSD_Spleen', 'MSD_Colon']
-
 # hmd → tem que flipar a imagem e rotacionar 90 graus 1 vez 
 # ((Flipd(keys=['mask'], spatial_axis=1), Rotate90d(keys=['ct', 'mask'], k=2, spatial_axes=(0, 1))
 
@@ -31,7 +29,7 @@ datasets = ['MSD_Liver', 'MSD_Hippocampus', 'MSD_Lung', 'MSD_Pancreas', 'MSD_Hep
 data_paths = {
     'hmd': '/mnt/B-SSD/unet21d_slices/datasets/liver/supervised',
     'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/LITSkaggle',
-    'amos22': '/mnt/B-SSD/unet21d_slices/datasets/AMOS2022/AMOS22',
+    'amos22': '/mnt/B-SSD/unet21d_slices/datasets/amos22/AMOS22',
     'MSD_Brain': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task01_BrainTumour',
     'MSD_Heart': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task02_Heart',
     'MSD_Liver': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task03_Liver',
@@ -44,15 +42,18 @@ data_paths = {
     'MSD_Colon': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task10_Colon',
     
 }
+datasets = ['MSD_Hippocampus', 'MSD_Pancreas', 'MSD_HepaticVessel']
+
 for dataset in datasets:
     dataset_path = data_paths[dataset]
     print('loading dataset from:', dataset_path)
     processed_path = os.path.join('/mnt/B-SSD/unet21d_slices/datasets/processed', dataset)
-
+    imagefolder = 'images'
+    maskfolder = 'mask'
     if not os.path.exists(processed_path):
         os.makedirs(processed_path)
-        os.makedirs(os.path.join(processed_path, 'CT'))
-        os.makedirs(os.path.join(processed_path, 'mask'))
+        os.makedirs(os.path.join(processed_path, imagefolder))
+        os.makedirs(os.path.join(processed_path, maskfolder))
 
     ct = sorted(glob(os.path.join(dataset_path, 'imagesTr', '*.nii*')))
     mask = sorted(glob(os.path.join(dataset_path, 'labelsTr', '*.nii*')))
@@ -67,7 +68,7 @@ for dataset in datasets:
             LoadImaged(keys=['ct', 'mask'], image_only=True),
             EnsureChannelFirstd(keys=['ct', 'mask']),
             Rotate90d(keys=['ct', 'mask'], k=2, spatial_axes=(0, 1)),
-            LabelToMaskd(keys=['mask'], select_labels=[1, 2], merge_channels=True),
+            #LabelToMaskd(keys=['mask'], select_labels=[1, 2], merge_channels=True),
             #Flipd(keys=['mask'], spatial_axis=1), #hmd data are flipped
         ]
     )
@@ -85,10 +86,10 @@ for dataset in datasets:
         for slice in tqdm(range(ct.shape[4]), leave=False):
             writer_ct.set_data_array(ct[0, 0, :, :, slice], channel_dim=None)
             # first four digits are patient number, last four are slice number
-            writer_ct.write(os.path.join(processed_path, 'CT', '{:04d}_{:04d}.nii'.format(patient_num, slice)))
+            writer_ct.write(os.path.join(processed_path, imagefolder, '{:04d}_{:04d}.nii'.format(patient_num, slice)))
 
             writer_mask.set_data_array(mask[0, 0, :, :, slice], channel_dim=None)
             # first four digits are patient number, last four are slice number
-            writer_mask.write(os.path.join(processed_path, 'mask', '{:04d}_{:04d}.nii'.format(patient_num, slice)))
+            writer_mask.write(os.path.join(processed_path, maskfolder, '{:04d}_{:04d}.nii'.format(patient_num, slice)))
                 
         patient_num += 1

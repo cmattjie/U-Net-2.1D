@@ -46,6 +46,7 @@ def get_args():
     parser.add_argument('--lr',                 default=1e-4, type=float, help='Learning rate.')
     parser.add_argument('--loss',               default='bce', type=str, help='Loss function.')
     parser.add_argument('--seed',               default=42, type=int, help='Random seed.')
+    parser.add_argument('--dropout',            default=0.0, type=float, help='Dropout rate.')
     
     args = parser.parse_args()
     warnings.filterwarnings("ignore")
@@ -79,10 +80,11 @@ if __name__ == "__main__":
     print('early stop:', args.early_stop)
     print('dataset:', args.dataset)
     print('gpu:', args.gpu)
+    print('dropout:', args.dropout)
     
     device=f'cuda:{args.gpu}'
     
-    model = UNET21D(in_channels=1, out_channels=1, slice=int(args.slice)).to(device)
+    model = UNET21D(in_channels=1, out_channels=1, slice=int(args.slice), dropout=args.dropout).to(device)
     
     #tensorboard
     board = SummaryWriter(f'runs/{args.name}')
@@ -92,7 +94,7 @@ if __name__ == "__main__":
     
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     #TODO evaluate other scheduler options
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=5, verbose=True)
     
     #Get Loaders
     train_loader, val_loader = get_loader(args)
@@ -111,7 +113,10 @@ if __name__ == "__main__":
     best_dsc_bg = 0
     early_stop = 0
     dsc_bg=0
-    post_trans = Compose([Activations(sigmoid=True), AsDiscrete(threshold=0.5)])
+    
+    #post_trans = Compose([Activations(sigmoid=True), AsDiscrete(threshold_values=(0.5, 1.5), num_classes=3)])
+    #TODO multiclass
+    post_trans = Compose([Activations(sigmoid=False), AsDiscrete(argmax=True)])
     
     for epoch in range(args.epochs):
         #early stop
@@ -135,7 +140,6 @@ if __name__ == "__main__":
             dice_pred = metrics.DiceMetric(include_background=True)
             iou_pred = metrics.MeanIoU(include_background=True)
             
-            #TODO dropout
             #set model to train or eval
             if is_train: 
                 model.train()
@@ -145,7 +149,7 @@ if __name__ == "__main__":
                 model.requires_grad_(False)
             
             for batch_data in loop:
-                data, target = batch_data['ct'].to(device), batch_data['mask'].to(device)
+                data, target = batch_data['images'].to(device), batch_data['mask'].to(device)
                                 
                 with torch.cuda.amp.autocast():
                     pred_raw = model(data)
