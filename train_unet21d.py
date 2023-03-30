@@ -25,7 +25,6 @@ from monai.transforms import (
     Compose,
 )
 
-
 from torch.utils.tensorboard import SummaryWriter
 from monai.visualize import plot_2d_or_3d_image
 
@@ -90,9 +89,12 @@ if __name__ == "__main__":
     board = SummaryWriter(f'runs/{args.name}')
     
     #Loss and optimizer
+    #TODO incluir loss composto
     loss_fn = loss_dict[args.loss]
     
+    #TODO AdamW (Universal model usou esse), SGD with momentum
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    
     #TODO evaluate other scheduler options
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=5, verbose=True)
     
@@ -114,9 +116,10 @@ if __name__ == "__main__":
     early_stop = 0
     dsc_bg=0
     
+    post_trans =  Compose([Activations(sigmoid=True), AsDiscrete(threshold_values=0.5, num_classes=2)])
     #post_trans = Compose([Activations(sigmoid=True), AsDiscrete(threshold_values=(0.5, 1.5), num_classes=3)])
     #TODO multiclass
-    post_trans = Compose([Activations(sigmoid=False), AsDiscrete(argmax=True)])
+    #post_trans = Compose([Activations(sigmoid=False), AsDiscrete(argmax=True)])
     
     for epoch in range(args.epochs):
         #early stop
@@ -170,7 +173,8 @@ if __name__ == "__main__":
                     plot_2d_or_3d_image(predictions, epoch+1, board, index=0, tag="images/prediction")
                     plot_2d_or_3d_image(pred_raw, epoch+1, board, index=0, tag="images/prediction_raw")
             
-                # save 5 images from the last epoch
+                # save 5 images from the epoch after the one with the best dice
+                #TODO keep images and only save them at the end if the dice is better
                 if not is_train and (torch.sum(target[0]) > save_target_dict[args.dataset]) and (count<6) and early_stop==0:
                     count += 1
                     plot_2d_or_3d_image(data, count, board, index=0, tag="last_epoch/image")

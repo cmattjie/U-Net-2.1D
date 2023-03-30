@@ -20,7 +20,7 @@ class FirstDoubleConv(nn.Module):
             self.conv2.add_module(str(i)+"-3", nn.ReLU(inplace=True))
             self.conv2.add_module(str(i)+"-4", nn.Dropout(dropout))
             
-            #TODO incluir mais camadas convolucionais
+            #TODO incluir mais camadas convolucionais nesse for
         
     def forward(self, x):
         return self.conv2(x)
