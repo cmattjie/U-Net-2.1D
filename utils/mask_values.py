@@ -8,21 +8,21 @@ def get_mask_values(mask):
 
 #get mask
 data_paths = {
-    'hmd': '/mnt/B-SSD/unet21d_slices/datasets/liver/supervised',
-    'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/LITSkaggle',
-    'amos22': '/mnt/B-SSD/unet21d_slices/datasets/amos22/AMOS22',
-    'MSD_Brain': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task01_BrainTumour',
-    'MSD_Heart': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task02_Heart',
-    'MSD_Liver': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task03_Liver',
-    'MSD_Hippocampus': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task04_Hippocampus',
-    'MSD_Prostate': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task05_Prostate',
-    'MSD_Lung': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task06_Lung',
-    'MSD_Pancreas': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task07_Pancreas',
-    'MSD_HepaticVessel': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task08_HepaticVessel',
-    'MSD_Spleen': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task09_Spleen',
-    'MSD_Colon': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task10_Colon',
+    'hmd': '/mnt/B-SSD/maltamed/datasets/liver/supervised',
+    'LITSkaggle': '/mnt/B-SSD/maltamed/datasets/LITSkaggle',
+    'amos22': '/mnt/B-SSD/maltamed/datasets/amos22/AMOS22',
+    'MSD_Brain': '/mnt/B-SSD/maltamed/datasets/MSD/Task01_BrainTumour',
+    'MSD_Heart': '/mnt/B-SSD/maltamed/datasets/MSD/Task02_Heart',
+    'MSD_Liver': '/mnt/B-SSD/maltamed/datasets/MSD/Task03_Liver',
+    'MSD_Hippocampus': '/mnt/B-SSD/maltamed/datasets/MSD/Task04_Hippocampus',
+    'MSD_Prostate': '/mnt/B-SSD/maltamed/datasets/MSD/Task05_Prostate',
+    'MSD_Lung': '/mnt/B-SSD/maltamed/datasets/MSD/Task06_Lung',
+    'MSD_Pancreas': '/mnt/B-SSD/maltamed/datasets/MSD/Task07_Pancreas',
+    'MSD_HepaticVessel': '/mnt/B-SSD/maltamed/datasets/MSD/Task08_HepaticVessel',
+    'MSD_Spleen': '/mnt/B-SSD/maltamed/datasets/MSD/Task09_Spleen',
+    'MSD_Colon': '/mnt/B-SSD/maltamed/datasets/MSD/Task10_Colon',
 }
-datasets=['LITSkaggle', 'amos22', 'MSD_Colon', 'MSD_HepaticVessel', 'MSD_Hippocampus', 'MSD_Lung', 'MSD_Pancreas', 'MSD_Spleen']
+datasets=['LITSkaggle', 'amos22', 'MSD_Colon', 'MSD_HepaticVessel', 'MSD_Hippocampus', 'MSD_Lung', 'MSD_Pancreas', 'MSD_Spleen', 'MSD_Heart']
 
 for dataset in datasets:
     DATA_PATH = os.path.join(data_paths[dataset], 'labelsTr')
@@ -39,4 +39,3 @@ for dataset in datasets:
     print(mask_path)
     print(get_mask_values(mask_data))
     
-     

@@ -3,6 +3,7 @@ import os
 from tqdm import tqdm
 import torch
 import numpy as np
+import json
 
 #import albumentations as A
 #from albumentations.pytorch import ToTensorV2
@@ -14,7 +15,11 @@ from models.Unet21D import UNET21D
 from utils import (
     get_loader,
     set_seeds,
-    plot_images
+    plot_images,
+    LinearWarmupCosineAnnealingLR,    
+    BinaryDiceLoss,
+    Multi_BCELoss,
+    DiceLoss
 )
 
 from monai import metrics, losses
@@ -42,8 +47,10 @@ def get_args():
     parser.add_argument('--name',               default='test', type=str, help='Run name on Tensorboard and savedirs.')
     parser.add_argument('--slice',              default=1, type=int,  help='Number of extra slices on each side')
     parser.add_argument('--epochs',             default=100, type=int, help='Number of epochs to train.')
+    parser.add_argument('--loss',               default='dice', type=str, help='Loss function.')
+    parser.add_argument('--optimizer',          default='adamw', type=str, help='Optimizer.')
+    parser.add_argument('--scheduler',          default='plateau', type=str, help='Scheduler.')
     parser.add_argument('--lr',                 default=1e-4, type=float, help='Learning rate.')
-    parser.add_argument('--loss',               default='bce', type=str, help='Loss function.')
     parser.add_argument('--seed',               default=42, type=int, help='Random seed.')
     parser.add_argument('--dropout',            default=0.0, type=float, help='Dropout rate.')
     
@@ -54,49 +61,43 @@ def get_args():
     return args 
 
 if __name__ == "__main__":
+    #loading dicts and args and setting seeds
     args = get_args()
     set_seeds(args.seed)
-    
+    dicts = json.load(open('utils/dicts.json', 'r'))
+
     # Create dirs if not exist
     save_path = os.path.join("./checkpoints", args.name, "my_checkpoint_test.pth.tar")
     if not os.path.exists(save_path):
         os.makedirs(os.path.join("./checkpoints", args.name), exist_ok=True)
     
-    #TODO import dicts from utils
-    loss_dict = {
-            'bce': nn.BCEWithLogitsLoss(),
-            'dice': losses.DiceLoss(),
-            'gdice': losses.GeneralizedDiceLoss(),
-            'focal': losses.FocalLoss()
-            }
-    
     # Print args
     print('name:', args.name)
-    print('loss:', str(loss_dict[args.loss]))
+    print('loss:', dicts['loss'][args.loss])
     print('learning rate:', args.lr)
+    print('optimizer:', args.optimizer)
+    print('scheduler:', args.scheduler)
     print('slice:', args.slice)
     print('batch size:', args.batch_size)
     print('early stop:', args.early_stop)
     print('dataset:', args.dataset)
     print('gpu:', args.gpu)
     print('dropout:', args.dropout)
+    print('seed:', args.seed)
     
     device=f'cuda:{args.gpu}'
-    
-    model = UNET21D(in_channels=1, out_channels=1, slice=int(args.slice), dropout=args.dropout).to(device)
+
+    out_channels = dicts['out_channels'][args.dataset]
+    model = UNET21D(in_channels=1, out_channels=out_channels, slice=int(args.slice), dropout=args.dropout).to(device)
     
     #tensorboard
     board = SummaryWriter(f'runs/{args.name}')
     
-    #Loss and optimizer
+    #Loss, optimizer and scheduler
     #TODO incluir loss composto
-    loss_fn = loss_dict[args.loss]
-    
-    #TODO AdamW (Universal model usou esse), SGD with momentum
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    
-    #TODO evaluate other scheduler options
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=5, verbose=True)
+    loss_fn = eval(dicts['loss'][args.loss])
+    optimizer = eval(dicts['optimizer'][args.optimizer])
+    scheduler = eval(dicts['scheduler'][args.scheduler])
     
     #Get Loaders
     train_loader, val_loader = get_loader(args)
@@ -140,8 +141,9 @@ if __name__ == "__main__":
             save_batch = True
             count=0
             
-            dice_pred = metrics.DiceMetric(include_background=True)
-            iou_pred = metrics.MeanIoU(include_background=True)
+            #TODO verificar se true ou false
+            dice_pred = metrics.DiceMetric(include_background=True, reduction='mean_batch')
+            iou_pred = metrics.MeanIoU(include_background=True, reduction='mean_batch')
             
             #set model to train or eval
             if is_train: 
@@ -160,13 +162,11 @@ if __name__ == "__main__":
                     loss = loss_fn(pred_raw, target)
                     epoch_loss.append(loss.item())
                 
-                #TODO adicionar targets para outros datasets
-                save_target_dict= {'hmd': 8000, 'LITSkaggle': 10000, 'MSD_Lung': 20,
-                                   'MSD_Spleen': 1000, 'MSD_Kidney': 20, 'MSD_Prostate': 20, 'MSD_Colon': 20, 'MSD_Pancreas': 2000, 'MSD_HepaticVessel': 20}
+                save_target_dict = dicts['save_target_dict'][args.dataset]
                 
-                #saving predictions
+                #TODO save images from all channels
                 # save one image for each epoch
-                if not is_train and save_batch and (torch.sum(target[0]) > save_target_dict[args.dataset]):
+                if not is_train and save_batch and (torch.sum(target[0]) > int(save_target_dict)):
                     save_batch = False
                     plot_2d_or_3d_image(data, epoch+1, board, index=0, tag="images/image")
                     plot_2d_or_3d_image(target, epoch+1, board, index=0, tag="images/label")
@@ -175,7 +175,7 @@ if __name__ == "__main__":
             
                 # save 5 images from the epoch after the one with the best dice
                 #TODO keep images and only save them at the end if the dice is better
-                if not is_train and (torch.sum(target[0]) > save_target_dict[args.dataset]) and (count<6) and early_stop==0:
+                if not is_train and (torch.sum(target[0]) > int(save_target_dict)) and (count<6) and early_stop==0:
                     count += 1
                     plot_2d_or_3d_image(data, count, board, index=0, tag="last_epoch/image")
                     plot_2d_or_3d_image(target, count, board, index=0, tag="last_epoch/label")
@@ -200,17 +200,24 @@ if __name__ == "__main__":
                 )
                     
             #get metrics
-            dice = dice_pred.aggregate().item()
-            iou = iou_pred.aggregate().item()
+            dice = dice_pred.aggregate()
+            iou = iou_pred.aggregate()
             
             #tensorboard
+            board.add_scalar(f'{description}/dice', dice.mean(), epoch)
             board.add_scalar(f'{description}/loss', np.mean(epoch_loss).mean(), epoch)
-            board.add_scalar(f'{description}/dice', dice, epoch)
-            board.add_scalar(f'{description}/iou', iou, epoch)
-
+            for i in range(out_channels):
+                board.add_scalar(f'{description}/dice_{i+1}', dice[i], epoch)
+                board.add_scalar(f'{description}/iou_{i+1}', iou[i], epoch)
+            
             #reset metrics
             dice_pred.reset()
             iou_pred.reset()
+        
+        #get mean dice
+        print(dice)
+        dice = dice.mean()
+        print(dice)
         
         #scheduler
         scheduler.step(-dice)

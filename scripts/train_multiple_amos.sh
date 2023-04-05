@@ -7,14 +7,14 @@ echo $alpha
 python3 train_unet21d.py \
 --batch_size 25 \
 --early_stop 20 \
---dataset LITSkaggle \
---gpu 1 \
+--dataset amos22 \
+--gpu 2 \
 --load_dir None \
---name LITS_disc/loss_focal/slice$alpha/lr1e-4 \
+--name amos22/loss_dicefocal/slice$alpha/lr1e-4 \
 --slice $alpha \
 --epochs 200 \
 --lr 1e-4 \
---loss focal \
+--loss dicefocal \
 
 
 done

@@ -1,0 +1,66 @@
+{
+    "dataset_original_path": {
+        "LITSkaggle": "/mnt/B-SSD/maltamed/datasets/LITSkaggle",
+        "amos22": "/mnt/B-SSD/maltamed/datasets/amos22/AMOS22",
+        "MSD_Brain": "/mnt/B-SSD/maltamed/datasets/MSD/Task01_BrainTumour",
+        "MSD_Heart": "/mnt/B-SSD/maltamed/datasets/MSD/Task02_Heart",
+        "MSD_Liver": "/mnt/B-SSD/maltamed/datasets/MSD/Task03_Liver",
+        "MSD_Hippocampus": "/mnt/B-SSD/maltamed/datasets/MSD/Task04_Hippocampus",
+        "MSD_Prostate": "/mnt/B-SSD/maltamed/datasets/MSD/Task05_Prostate",
+        "MSD_Lung": "/mnt/B-SSD/maltamed/datasets/MSD/Task06_Lung",
+        "MSD_Pancreas": "/mnt/B-SSD/maltamed/datasets/MSD/Task07_Pancreas",
+        "MSD_HepaticVessel": "/mnt/B-SSD/maltamed/datasets/MSD/Task08_HepaticVessel",
+        "MSD_Spleen": "/mnt/B-SSD/maltamed/datasets/MSD/Task09_Spleen",
+        "MSD_Colon": "/mnt/B-SSD/maltamed/datasets/MSD/Task10_Colon"
+    },
+
+    "dataset_processed_path": {
+        "LITSkaggle": "/mnt/B-SSD/maltamed/datasets/processed/LITSkaggle",
+        "amos22": "/mnt/B-SSD/maltamed/datasets/processed/amos22",
+        "MSD_Colon": "/mnt/B-SSD/maltamed/datasets/processed/MSD_Colon",
+        "MSD_Heart": "/mnt/B-SSD/maltamed/datasets/processed/MSD_Heart",
+        "MSD_HepaticVessel": "/mnt/B-SSD/maltamed/datasets/processed/MSD_HepaticVessel",
+        "MSD_Hippocampus": "/mnt/B-SSD/maltamed/datasets/processed/MSD_Hippocampus",
+        "MSD_Lung": "/mnt/B-SSD/maltamed/datasets/processed/MSD_Lung",
+        "MSD_Pancreas": "/mnt/B-SSD/maltamed/datasets/processed/MSD_Pancreas",
+        "MSD_Spleen": "/mnt/B-SSD/maltamed/datasets/processed/MSD_Spleen"
+    },
+
+    "out_channels": {
+        "LITSkaggle": 2,
+        "amos22": 15,
+        "MSD_Heart": 1,
+        "MSD_Hippocampus": 2,
+        "MSD_Lung": 1,
+        "MSD_Pancreas": 2,
+        "MSD_HepaticVessel": 2,
+        "MSD_Spleen": 1,
+        "MSD_Colon": 1
+    },
+
+    "save_target_dict": {"hmd": 8000, "LITSkaggle": 10000, "MSD_Lung": 40,
+        "MSD_Spleen": 1000, "MSD_Kidney": 20, "MSD_Prostate": 20, "MSD_Colon": 20, "MSD_Pancreas": 2000, "MSD_HepaticVessel": 20, "amos22": 5000
+    },
+
+    "loss": {
+        "bce": "nn.BCEWithLogitsLoss()",
+        "dice": "losses.DiceLoss()",                         
+        "gdice": "losses.GeneralizedDiceLoss()",
+        "focal": "losses.FocalLoss()",
+        "dicefocal": "losses.DiceFocalLoss()",
+        "clipdice": "BinaryDiceLoss()",
+        "clipmultidice": "DiceLoss(out_channels)",
+        "clipmultibce": "Multi_BCELoss(out_channels)"
+    },
+
+    "optimizer": {
+        "adam": "optim.Adam(model.parameters(), lr=args.lr)",
+        "sgd": "optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)",
+        "adamw": "optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)"
+    },
+    
+    "scheduler": {
+        "plateau": "lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=6, verbose=True)",
+        "LWCA": "LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=10, max_epochs=args.epoch)"
+    }
+}

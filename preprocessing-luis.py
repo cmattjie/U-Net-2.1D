@@ -51,28 +51,28 @@ class ConvertToMultiChannelBasedOnClassesd(MapTransform):
         return d
 
 data_paths = {
-    'hmd': '/mnt/B-SSD/unet21d_slices/datasets/liver/supervised',
-    'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/LITSkaggle',
-    'amos22': '/mnt/B-SSD/unet21d_slices/datasets/amos22/AMOS22',
-    'MSD_Brain': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task01_BrainTumour',
-    'MSD_Heart': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task02_Heart',
-    'MSD_Liver': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task03_Liver',
-    'MSD_Hippocampus': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task04_Hippocampus',
-    'MSD_Prostate': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task05_Prostate',
-    'MSD_Lung': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task06_Lung',
-    'MSD_Pancreas': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task07_Pancreas',
-    'MSD_HepaticVessel': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task08_HepaticVessel',
-    'MSD_Spleen': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task09_Spleen',
-    'MSD_Colon': '/mnt/B-SSD/unet21d_slices/datasets/MSD/Task10_Colon',
+    'hmd': '/mnt/B-SSD/maltamed/datasets/liver/supervised',
+    'LITSkaggle': '/mnt/B-SSD/maltamed/datasets/LITSkaggle',
+    'amos22': '/mnt/B-SSD/maltamed/datasets/amos22/AMOS22',
+    'MSD_Brain': '/mnt/B-SSD/maltamed/datasets/MSD/Task01_BrainTumour',
+    'MSD_Heart': '/mnt/B-SSD/maltamed/datasets/MSD/Task02_Heart',
+    'MSD_Liver': '/mnt/B-SSD/maltamed/datasets/MSD/Task03_Liver',
+    'MSD_Hippocampus': '/mnt/B-SSD/maltamed/datasets/MSD/Task04_Hippocampus',
+    'MSD_Prostate': '/mnt/B-SSD/maltamed/datasets/MSD/Task05_Prostate',
+    'MSD_Lung': '/mnt/B-SSD/maltamed/datasets/MSD/Task06_Lung',
+    'MSD_Pancreas': '/mnt/B-SSD/maltamed/datasets/MSD/Task07_Pancreas',
+    'MSD_HepaticVessel': '/mnt/B-SSD/maltamed/datasets/MSD/Task08_HepaticVessel',
+    'MSD_Spleen': '/mnt/B-SSD/maltamed/datasets/MSD/Task09_Spleen',
+    'MSD_Colon': '/mnt/B-SSD/maltamed/datasets/MSD/Task10_Colon',
     
 }
-datasets = ['LITSkaggle']
+datasets = ['MSD_HepaticVessel']
 
 for dataset in datasets:
     dataset_path = data_paths[dataset]
     print('loading dataset from:', dataset_path)
-    #processed_path = os.path.join('/mnt/B-SSD/unet21d_slices/datasets/processed', dataset)
-    processed_path = os.path.join('/mnt/B-SSD/unet21d_slices/datasets/test', dataset)
+    #processed_path = os.path.join('/mnt/B-SSD/maltamed/datasets/processed', dataset)
+    processed_path = os.path.join('/mnt/B-SSD/maltamed/datasets/processed/test', dataset)
     imagefolder = 'images'
     maskfolder = 'mask'
     if not os.path.exists(processed_path):
@@ -83,8 +83,8 @@ for dataset in datasets:
     ct = sorted(glob(os.path.join(dataset_path, 'imagesTr', '*.nii*')))
     mask = sorted(glob(os.path.join(dataset_path, 'labelsTr', '*.nii*')))
 
-    print(mask[6:8])
-    exit()
+    # print(mask[6:8])
+    # exit()
 
     print("Found {} CT scans and {} masks".format(len(ct), len(mask)))
 

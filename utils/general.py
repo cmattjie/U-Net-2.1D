@@ -3,12 +3,14 @@ import os
 from glob import glob
 import numpy as np
 import random
+import json
 
 from loader.LITS import MotomedDataset
 from tqdm import tqdm
 from monai import metrics
 from monai.data import decollate_batch, ThreadDataLoader
 from monai.visualize import plot_2d_or_3d_image
+from monai.transforms.utils import get_unique_labels
 from monai.transforms import (
     Activations,
     EnsureChannelFirst,
@@ -16,54 +18,60 @@ from monai.transforms import (
     Compose,
     ScaleIntensityRange,
     Resize,
+    Transform,
 )
 
-def get_loader(args):
-    slice=int(args.slice)
+class ConvertToMultiChannelBasedOnClasses(Transform):
+    
+    def __init__(self, n_labels):
+        self.n_labels = n_labels    
+    """
+    Convert labels to multi channels based on classes:
+    Args:
+        keys (list): list of keys to be transformed.
+    """
 
-    dataset = args.dataset
-    data_paths = {
-        'hmd': '/mnt/B-SSD/unet21d_slices/datasets/processed/hmd',
-        'LITSkaggle': '/mnt/B-SSD/unet21d_slices/datasets/processed/LITSkaggle',
-        'amos22': '/mnt/B-SSD/unet21d_slices/datasets/processed/amos22', # multiple organs, take care :D
-        'MSD_Colon': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Colon',
-        'MSD_HepaticVessel': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_HepaticVessel',
-        'MSD_Hippocampus': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Hippocampus',
-        #'MSD_Liver': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Liver',
-        'MSD_Lung': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Lung',
-        'MSD_Pancreas': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Pancreas',
-        'MSD_Spleen': '/mnt/B-SSD/unet21d_slices/datasets/processed/MSD_Spleen',
-    }
-    DATA_PATH = data_paths[dataset]
+    def __call__(self, data):
+        # Convert labels to multi channels
+        result = []
+        for label in range(self.n_labels+1)[1:]:
+            result.append(data == label)
+        data = torch.squeeze(torch.stack(result, axis=0).float())
+        return data
+
+def get_loader(args):
+
+    dicts = json.load(open('utils/dicts.json', 'r'))
+    data_path = dicts['dataset_processed_path'][args.dataset]
+    n_labels = dicts['out_channels'][args.dataset]
 
     # Get list of patients to give as input to dataset
-    imgs = sorted(os.listdir(os.path.join(DATA_PATH, 'images')))
+    imgs = sorted(os.listdir(os.path.join(data_path, 'images')))
     patients_list = list()
     for img in imgs:
         if img[:4] not in patients_list:
             patients_list.append(img[:4])
 
     # TEST ONLY, REMOVE LATER
-    #patients_list = patients_list[:2]
+    # patients_list = patients_list[:2]
     
     num_total_img = len(patients_list)
     # Save data to test
-    num_test = int(num_total_img*0.2)
-    test_list = patients_list[:num_test]
+    print("Not keeping data for testing!")
+    # num_test = int(num_total_img*0.2)
+    # test_list = patients_list[:num_test]
 
-    _ = patients_list[num_test:]
-    num_img = len(_)
+    # _ = patients_list[num_test:]
+    num_img = len(patients_list)
     num_train = int(num_img * 0.80)
 
-    train_list = _[:num_train]
-    # print('lista treino:', len(train_list))
-    # print('quant traino:',  num_train)
-    validation_list = _[num_train:]
+    train_list = patients_list[:num_train]
+    validation_list = patients_list[num_train:]
 
     print('Number of patients: ', num_total_img)
     print('Number of training patients: ', len(train_list))
     print('Number of validation patients: ', len(validation_list))
-    print('Number of test patients: ', len(test_list))
+    #print('Number of test patients: ', len(test_list))
 
     #TODO change min and max values according to dataset and organ
     organ_intensity_range = {
@@ -85,7 +93,7 @@ def get_loader(args):
             Resize(spatial_size=(256, 256), mode=("area")),
             #Flipd(keys=['mask'], spatial_axis=1),
             ScaleIntensityRange(
-            a_min=organ_intensity_range[dataset][0], a_max=organ_intensity_range[dataset][1],
+            a_min=organ_intensity_range[args.dataset][0], a_max=organ_intensity_range[args.dataset][1],
             b_min=0.0, b_max=1.0, clip=True,
             ),
         ]
@@ -95,6 +103,7 @@ def get_loader(args):
             EnsureChannelFirst(),
             Resize(spatial_size=(256, 256), mode=("nearest")),
             #Flipd(keys=['mask'], spatial_axis=1),
+            ConvertToMultiChannelBasedOnClasses(n_labels=n_labels),
         ]
     )
 
@@ -104,7 +113,7 @@ def get_loader(args):
             #Flipd(keys=['mask'], spatial_axis=1),
             Resize(spatial_size=(256, 256), mode=("area")),
             ScaleIntensityRange(
-            a_min=organ_intensity_range[dataset][0], a_max=organ_intensity_range[dataset][1],
+            a_min=organ_intensity_range[args.dataset][0], a_max=organ_intensity_range[args.dataset][1],
             b_min=0.0, b_max=1.0, clip=True,
             ),
         ]
@@ -114,11 +123,12 @@ def get_loader(args):
             EnsureChannelFirst(),
             Resize(spatial_size=(256, 256), mode=("nearest")),
             #Flipd(keys=['mask'], spatial_axis=1),
+            ConvertToMultiChannelBasedOnClasses(n_labels=n_labels),
         ]
     )
 
-    train_ds = MotomedDataset(main_dir=DATA_PATH, delta_slice=slice, subset=train_list, transform_img=train_transforms_img, transform_mask=train_transforms_mask)
-    val_ds = MotomedDataset(main_dir=DATA_PATH, delta_slice=slice, subset=validation_list, transform_img=val_transforms_img, transform_mask=val_transforms_mask)
+    train_ds = MotomedDataset(main_dir=data_path, delta_slice=args.slice, subset=train_list, transform_img=train_transforms_img, transform_mask=train_transforms_mask)
+    val_ds = MotomedDataset(main_dir=data_path, delta_slice=args.slice, subset=validation_list, transform_img=val_transforms_img, transform_mask=val_transforms_mask)
 
     #plot_images(train_ds[50]['ct'], train_ds[50]['mask'], slice)
 
